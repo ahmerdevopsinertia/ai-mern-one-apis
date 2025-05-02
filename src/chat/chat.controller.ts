@@ -1,18 +1,25 @@
 import { Controller, Post, Body } from '@nestjs/common';
-import { ChatService } from './chat.service';
-import { ChatRequestDto } from './dto/chat-request.dto';
-import { ApiBody, ApiTags } from '@nestjs/swagger';
+import { AIService } from '../ai/ai.service';
 
-
-@ApiTags('Chat')
 @Controller('chat')
 export class ChatController {
-  constructor(private readonly chatService: ChatService) {}
+  constructor(private aiService: AIService) {}
 
   @Post()
-  @ApiBody({ type: ChatRequestDto }) // 👈 this makes Swagger recognize it
-  async handleChat(@Body('message') message: string) {
-    const response = await this.chatService.chat(message);
-    return { reply: response };
+  async chat(@Body() { message }: { message: string }) {
+    // Input validation
+    if (!this.isHRQuestion(message)) {
+      return {
+        reply: "I specialize in school staff policies. Please ask HR-related questions.",
+        sources: []
+      };
+    }
+
+    return this.aiService.handleQuery(message);
+  }
+
+  private isHRQuestion(text: string): boolean {
+    const keywords = ['leave', 'policy', 'attendance', 'staff'];
+    return keywords.some(keyword => text.toLowerCase().includes(keyword));
   }
 }
