@@ -163,10 +163,12 @@ export class AIService {
         {
           prompt: prompt,
           n_predict: 500,  // Increased from 256
-          temperature: 0.2,
+          // temperature: 0.2,
+          temperature: 0.1,
           top_k: 30,
           top_p: 0.85,
-          stop: ["\n\n", "6.", "RESPONSE:"], // Stop after 5 points
+          stop: ["</s>", "[INST]", "\n\n"], // Mistral-specific stops
+          // stop: ["\n\n", "6.", "RESPONSE:"], // Stop after 5 points
           repeat_penalty: 1.5, // Reduce repetition,
           repeat_last_n: 0,  // Prevent repetition
           mirostat: 2,       // Better response quality
@@ -204,22 +206,84 @@ export class AIService {
   }
 
   private buildPrompt(query: string, context?: string): string {
-    return `
-  [INSTRUCTIONS]
-  Answer the HR policy question using ONLY the provided context.
-  Structure your response:
-  1. Direct answer (1-2 sentences)
-  2. Key policy points (bulleted)
-  3. Policy reference
-  
-  [CONTEXT]
-  ${context?.trim() || "No specific policies available"}
-  
-  [QUESTION]
-  ${query.trim()}
-  
-  [ANSWER]
-  `.trim();
+    //   return `
+    // [INSTRUCTIONS]
+    // Answer the HR policy question using ONLY the provided context.
+    // Structure your response:
+    // 1. Direct answer (1-2 sentences)
+    // 2. Key policy points (bulleted)
+    // 3. Policy reference
+
+    // [CONTEXT]
+    // ${context?.trim() || "No specific policies available"}
+
+    // [QUESTION]
+    // ${query.trim()}
+
+    // [ANSWER]
+    // `.trim();
+
+    // more sample
+
+    // if (context) {
+    //   context = context.split('\n').slice(0, 10).join('\n'); // Take first 10 lines
+    //   console.log("Context limited to first 10 lines");
+    // }
+
+    // if (context && context.length > 2000) {
+    //   context = context.substring(0, 2000) + "... [truncated]";
+    //   console.log("Context truncated to 2000 chars");
+    // }
+
+    // const promptTemplate02 = `<s>[INST] <<SYS>>Use these policy excerpts to answer. Cite sources.<</SYS>>
+
+    // POLICIES:
+    // ${context || "No relevant policies found"}
+
+    // QUESTION: ${query.trim()}
+
+    // FORMAT:
+    // - Start with "According to policy:"
+    // - Use bullet points
+    // - End with reference like [Policy ABC101] [/INST]</s>`;
+
+    // // Add this line BEFORE return
+    // console.log("Final Prompt:", promptTemplate02.replace(/</g, "\\<")); // Escape HTML for logging
+
+    // return promptTemplate02;
+
+    // 1. Smarter context selection - keep policy sections intact
+    if (context) {
+      // Prioritize keeping complete policy sections
+      const sections = context.split('\n\n'); // Split by double newlines
+      context = sections.slice(0, 3).join('\n\n'); // Keep first 3 complete sections
+      console.log("Context limited to first 3 sections");
+    }
+
+    // 2. More generous length limit for policy docs
+    if (context && context.length > 3000) {
+      context = context.substring(0, 3000) + "... [truncated]";
+      console.log("Context truncated to 3000 chars");
+    }
+
+    // 3. Enhanced prompt structure
+    const prompt = `<s>[INST] <<SYS>>You are an HR policy expert. Answer in this exact format:
+  1. SUMMARY: 1-sentence answer
+  2. POLICY DETAILS:
+     - Bullet 1
+     - Bullet 2
+  3. REFERENCE: [Section X.Y] or [Policy ABC123]
+  <</SYS>>
+
+  RELEVANT POLICY EXCERPTS:
+  ${context || "No matching policy found"}
+
+  QUESTION: ${query.trim()} [/INST]</s>`;
+
+    console.log("Context Preview:", context?.substring(0, 100) + "...");
+    console.log("Prompt Token Estimate:", Math.ceil(prompt.length / 3.5)); // Approx tokens
+
+    return prompt;
   }
 
   private formatResponse(raw: string): string {
